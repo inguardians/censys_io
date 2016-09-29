@@ -6,6 +6,7 @@ import json
 import requests
 import random
 import glob
+import nmap
 
 from datetime import date
 from argparse import ArgumentParser
@@ -58,6 +59,17 @@ About: Execute raw SQL queries for
        this endpoint.
         """
 
+class CensysNmap:
+
+    def __init__(self, keys):
+
+        self.keys = keys
+        self.pscanner = nmap.PortScanner()
+
+    def service_scan(self):
+
+        pass
+
 class CensysAPI:
 
     def __init__(self, cmdstr):
@@ -88,7 +100,13 @@ class CensysAPI:
                     print searchjson['error']
 
                 else:
-                    print searchjson
+                    results = searchjson['results']
+                    for hostdata in results:
+                        ip = hostdata['ip']
+                        print ip
+                        proto = hostdata['protocols']
+                        for p in proto:
+                            print '   -{}'.format(p)
 
     def view(self):
         '''Execute query against view endpoint
@@ -97,14 +115,10 @@ class CensysAPI:
         if self.parselen == 3:
             if self.apicmd[1] in indexes:
                 view_url = CENSYS_API_ADDR + self.apicmd[0] + '/' + self.apicmd[1] + '/' + self.apicmd[2]
+                print view_url
                 view_obj = requests.get(view_url, auth=(CENSYS_API_ID,CENSYS_API_SECRET))
                 viewjson = view_obj.json()
-                check_res = is_censys_error(viewjson)
-                if check_res:
-                    print viewjson['error']
-
-                else:
-                    print viewjson
+                print viewjson.keys()
 
     def query(self):
         '''Execute SQL query against query endpoint'''
@@ -141,15 +155,14 @@ def censys_help():
        includes integration into CensysHelp
        class.'''
     print '''
-API Commands
------------------
+Censys API Commands
+------------------------
 search
 view
 query
 
-
-Console Commands
------------------
+Censys Console Commands
+------------------------
 hosts
 ports
 websites
@@ -235,22 +248,23 @@ def api_method(endpoint):
         if endpoint in CENSYS_KEYS['endpoints'][m].keys():
             return m
 
-def sessionHandler(file):
-
-    checkfile = glob.glob(file)
+def session_handler():
+    console_sessions = '{}/.sessions/'.format(os.getcwd())
+    current_session = 'censys-io-{}.session'.format(date.today())
+    checkfile = glob.glob('{}/{}'.format(console_sessions,current_session))
     if len(checkfile) == 0:
-        print "Console session not found."
-        print createSession(file)
-        print "Using console session: {}".format(file)
-        loadkeys = jsonLoader(file)
-        return loadkeys
+        print "Console session not found: {}".format(current_session)
+        #print createSession(file)
+        #loadkeys = jsonLoader(file)
+        #return loadkeys
 
     else:
-        print "Using console session: {}".format(file)
-        loadkeys = jsonLoader(file)
-        return loadkeys
+        print "Using console session: {}".format(current_session)
+        #loadkeys = jsonLoader(file)
+        #return loadkeys
 
 def censys_shell():
+    session_handler()
     prompt = '#censys_io ~> '
     while True:
         cmd = raw_input(prompt)
