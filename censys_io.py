@@ -27,7 +27,6 @@ class CensysHelp:
 
         except AttributeError, err:
             print "Help for {} is not available.".format(self.helpstr)
-            print err
 
     def search(self):
         print """
@@ -82,7 +81,6 @@ class CensysAPI:
 
         except AttributeError, err:
             print "Command not found."
-            print err
 
     def search(self):
         '''Execute query against search endpoint
@@ -150,6 +148,36 @@ class CensysAPI:
         print "Thank you for using Censys IO."
         sys.exit()
 
+class ConsoleAPI:
+
+    def __init__(self,cmdstr):
+        self.apicmd = cmdstr
+        self.parselen = len(self.apicmd)
+        try:
+            runcmd = getattr(self,self.apicmd[0])
+            runcmd()
+
+        except AttributeError, err:
+            print "Command not found."
+
+    def hosts(self):
+        pass
+
+    def ports(self):
+        pass
+
+    def websites(self):
+        pass
+
+    def protos(self):
+        pass
+
+    def certs(self):
+        pass
+
+    def tags(self):
+        pass
+
 def censys_help():
     '''Censys full help menu. Todo
        includes integration into CensysHelp
@@ -207,19 +235,13 @@ def unpack_json_keys(jres):
             print '{}: {}'.format(k.upper(),v)
     print ''
 
-def sortIPS(iplist):
+def sort_ips(iplist):
     '''Sorts a list of IPv4 addresses'''
     return sorted(iplist, key=lambda ip: long(''.join(["%02X" % long(i) for i in ip.split('.')]), 16))
 
-def sortPorts(portlist):
+def sort_ports(portlist):
     '''Sorts a list of port numbers'''
     return map(str,sorted(map(int,portlist)))
-
-def new_keys():
-    '''Creates new JSON key blob for
-       console session.'''
-    keys = {'censys_io':{'hosts':{}}}
-    return keys
 
 def json_writer(jdata,jfile):
     '''Function to write JSON data
@@ -234,11 +256,17 @@ def json_loader(jfile):
         sdata = json.load(jdata)
         return sdata
 
+def new_keys():
+    '''Creates new JSON key blob for
+       console session.'''
+    keys = {'censys_io':{'hosts':{'ports':{}}}}
+    return keys
+
 def create_session(sfile):
 
-    skeys = newKeys()
-    jsonWriter(skeys, sfile)
-    return "Censys IO console session created."
+    skeys = new_keys()
+    json_writer(skeys, sfile)
+    print "Censys IO console session created."
 
 
 def api_method(endpoint):
@@ -254,14 +282,14 @@ def session_handler():
     checkfile = glob.glob('{}/{}'.format(console_sessions,current_session))
     if len(checkfile) == 0:
         print "Console session not found: {}".format(current_session)
-        #print createSession(file)
-        #loadkeys = jsonLoader(file)
-        #return loadkeys
+        create_session(current_session)
+        loadkeys = json_loader(current_session)
+        return loadkeys
 
     else:
         print "Using console session: {}".format(current_session)
-        #loadkeys = jsonLoader(file)
-        #return loadkeys
+        loadkeys = json_loader(current_session)
+        return loadkeys
 
 def censys_shell():
     session_handler()
