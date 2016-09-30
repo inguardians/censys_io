@@ -77,21 +77,24 @@ class CensysNmap:
 
 class CensysAPI:
 
-    def __init__(self, cmdstr):
+    def __init__(self, cmdstr, keys):
 
         self.apicmd = cmdstr
+        self.keys = keys
         self.parselen = len(self.apicmd)
         try:
             runcmd = getattr(self,self.apicmd[0])
-            runcmd()
+            runcmd(self.keys)
 
         except AttributeError, err:
             print "Command not found."
 
-    def search(self):
+    def search(self,keys):
         '''Execute query against search endpoint
            using specific index type'''
         indexes = ['websites','ipv4','certificates']
+        tlds = ['com','net','org','edu','in','gov','io']
+        print keys
         if self.parselen == 3:
             if self.apicmd[1] in indexes:
                 search_url = CENSYS_API_ADDR + self.apicmd[0] + '/' + self.apicmd[1]
@@ -104,15 +107,23 @@ class CensysAPI:
                     print searchjson['error']
 
                 else:
-                    results = searchjson['results']
-                    for hostdata in results:
-                        ip = hostdata['ip']
-                        print ip
-                        proto = hostdata['protocols']
-                        for p in proto:
-                            print '   -{}'.format(p)
+                    if '.' in self.apicmd[2] and self.apicmd[2].split('.')[1].strip() in tlds:
+                        results = searchjson['results']
+                        for hostdata in results:
+                            ip = hostdata['ip']
+                            if ip in keys['censys_io']['domains']['hosts'].keys():
+                                continue
+                            hostkeys = {}
+                            print ip
+                            proto = hostdata['protocols']
+                            protolist = []
+                            for p in proto:
+                                print '   -{}'.format(p)
+                                protolist.append(p)
+                            hostkeys.update({'protos':protolist})
+                            keys['censys_io']['domains']['hosts'].update({ip:hostkeys})
 
-    def view(self):
+    def view(self,keys):
         '''Execute query against view endpoint
            using specific index type'''
         indexes = ['websites','ipv4','certificates']
@@ -124,7 +135,7 @@ class CensysAPI:
                 viewjson = view_obj.json()
                 print viewjson.keys()
 
-    def query(self):
+    def query(self,keys):
         '''Execute SQL query against query endpoint'''
         if self.parselen >= 2:
             query_url = CENSYS_API_ADDR + self.apicmd[0]
@@ -137,7 +148,7 @@ class CensysAPI:
             else:
                 print queryjson
 
-    def help(self):
+    def help(self,keys):
         '''Run help command to display general
            help or specific command help'''
         if self.parselen == 1:
@@ -149,7 +160,7 @@ class CensysAPI:
         else:
             pass
 
-    def exit(self):
+    def exit(self,keys):
         '''Exit Censys IO'''
         print "Thank you for using Censys IO."
         sys.exit()
@@ -264,7 +275,7 @@ def json_loader(jfile):
 def new_keys():
     '''Creates new JSON key blob for
        console session.'''
-    keys = {'censys_io':{'hosts':{'ports':{}}}}
+    keys = {'censys_io':{'domains':{'hosts':{}}}}
     return keys
 
 def create_session(sfile):
@@ -301,7 +312,8 @@ def censys_shell():
     prompt = '#censys_io ~> '
     while True:
         cmd = raw_input(prompt)
-        CensysAPI(cmd.split())
+        CensysAPI(cmd.split(), consolekeys)
+        json_writer(consolekeys,'{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today()))
 
 def banner():
 
