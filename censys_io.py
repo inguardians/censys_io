@@ -57,6 +57,12 @@ About: Execute raw SQL queries for
        Censys IO have permission to use
        this endpoint.
         """
+    def exit(self):
+        print """
+Usage: exit
+
+About: Exit Censys IO.
+        """
 
 class CensysNmap:
 
@@ -248,7 +254,6 @@ def json_writer(jdata,jfile):
        to console session file.'''
     with open(jfile, 'w') as sfile:
         json.dump(jdata, sfile)
-    return
 
 def json_loader(jfile):
 
@@ -277,22 +282,22 @@ def api_method(endpoint):
             return m
 
 def session_handler():
-    console_sessions = '{}/.sessions/'.format(os.getcwd())
+    console_sessions = '{}/.sessions'.format(os.getcwd())
     current_session = 'censys-io-{}.session'.format(date.today())
     checkfile = glob.glob('{}/{}'.format(console_sessions,current_session))
     if len(checkfile) == 0:
         print "Console session not found: {}".format(current_session)
-        create_session(current_session)
-        loadkeys = json_loader(current_session)
+        create_session('{}/{}'.format(console_sessions,current_session))
+        loadkeys = json_loader('{}/{}'.format(console_sessions,current_session))
         return loadkeys
 
     else:
-        print "Using console session: {}".format(current_session)
-        loadkeys = json_loader(current_session)
+        print "Using console session: {}".format('{}/{}'.format(console_sessions,current_session))
+        loadkeys = json_loader('{}/{}'.format(console_sessions,current_session))
         return loadkeys
 
 def censys_shell():
-    session_handler()
+    consolekeys = session_handler()
     prompt = '#censys_io ~> '
     while True:
         cmd = raw_input(prompt)
