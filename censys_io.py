@@ -106,22 +106,24 @@ class CensysAPI:
                 if check_res:
                     print searchjson['error']
 
-                else:
+                else: #NEED TO ADD LOGIC TO HANDLE WEBSITE AND CERTIFICATE DATA FOR PARSING AND SAVING SESSION DATA
                     if '.' in self.apicmd[2] and self.apicmd[2].split('.')[1].strip() in tlds:
-                        results = searchjson['results']
-                        for hostdata in results:
-                            ip = hostdata['ip']
-                            if ip in keys['censys_io']['domains']['hosts'].keys():
-                                continue
-                            hostkeys = {}
-                            print ip
-                            proto = hostdata['protocols']
-                            protolist = []
-                            for p in proto:
-                                print '   -{}'.format(p)
-                                protolist.append(p)
-                            hostkeys.update({'protos':protolist})
-                            keys['censys_io']['domains']['hosts'].update({ip:hostkeys})
+                        if self.apicmd[2] not in keys['censys_io']['domains'].keys():
+                            keys['censys_io']['domains'].update({self.apicmd[2]:{'hosts':{}}})
+                            results = searchjson['results']
+                            for hostdata in results:
+                                ip = hostdata['ip']
+                                if ip in keys['censys_io']['domains'][self.apicmd[2]]['hosts'].keys():
+                                    continue
+                                hostkeys = {}
+                                print ip
+                                proto = hostdata['protocols']
+                                protolist = []
+                                for p in proto:
+                                    print '   -{}'.format(p)
+                                    protolist.append(p)
+                                hostkeys.update({'protos':protolist})
+                                keys['censys_io']['domains'][self.apicmd[2]]['hosts'].update({ip:hostkeys})
 
     def view(self,keys):
         '''Execute query against view endpoint
@@ -167,32 +169,43 @@ class CensysAPI:
 
 class ConsoleAPI:
 
-    def __init__(self,cmdstr):
+    def __init__(self,cmdstr,keys):
         self.apicmd = cmdstr
+        self.keys = keys
         self.parselen = len(self.apicmd)
         try:
             runcmd = getattr(self,self.apicmd[0])
-            runcmd()
+            runcmd(self.keys)
 
         except AttributeError, err:
             print "Command not found."
 
-    def hosts(self):
+    def domains(self,keys):
+        for key in keys['censys_io']['domains'].keys():
+            print key
+
+    def hosts(self,keys):
+        for key in sorted(keys['censys_io']['domains'].keys()):
+            print '-' * 40
+            print 'Domain: {}'.format(key)
+            print '-' * 40
+            for host in sorted(keys['censys_io']['domains'][key]['hosts'].keys()):
+                print host
+            print '-' * 40
+
+    def ports(self,keys):
         pass
 
-    def ports(self):
+    def websites(self,keys):
         pass
 
-    def websites(self):
+    def protos(self,keys):
         pass
 
-    def protos(self):
+    def certs(self,keys):
         pass
 
-    def certs(self):
-        pass
-
-    def tags(self):
+    def tags(self,keys):
         pass
 
 def censys_help():
@@ -208,6 +221,7 @@ query
 
 Censys Console Commands
 ------------------------
+domains
 hosts
 ports
 websites
@@ -275,7 +289,7 @@ def json_loader(jfile):
 def new_keys():
     '''Creates new JSON key blob for
        console session.'''
-    keys = {'censys_io':{'domains':{'hosts':{}}}}
+    keys = {'censys_io':{'domains':{}}}
     return keys
 
 def create_session(sfile):
@@ -292,6 +306,17 @@ def api_method(endpoint):
         if endpoint in CENSYS_KEYS['endpoints'][m].keys():
             return m
 
+def session_check(sfile):
+    '''Checks if a session file exists'''
+    checkfile = glob.glob(sfile)
+    if len(checkfile) == 0:
+        print "Console session not found: {}".format(checkfile)
+        return False
+
+    else:
+        print "Console session found: {}".format(checkfile)
+        return True
+
 def session_handler():
     console_sessions = '{}/.sessions'.format(os.getcwd())
     current_session = 'censys-io-{}.session'.format(date.today())
@@ -307,12 +332,23 @@ def session_handler():
         loadkeys = json_loader('{}/{}'.format(console_sessions,current_session))
         return loadkeys
 
+def is_console(cmd):
+    if cmd == 'hosts' or cmd == 'domains' or cmd == 'ports':
+        return True
+    else:
+        return False
+
 def censys_shell():
     consolekeys = session_handler()
     prompt = '#censys_io ~> '
     while True:
         cmd = raw_input(prompt)
-        CensysAPI(cmd.split(), consolekeys)
+        check = is_console(cmd)
+        if check:
+            ConsoleAPI(cmd.split(), consolekeys)
+        else:
+            CensysAPI(cmd.split(), consolekeys)
+
         json_writer(consolekeys,'{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today()))
 
 def banner():
