@@ -260,11 +260,12 @@ class ConsoleAPI:
 
         print ''
         for key in sorted(keys['censys_io']['domains'].keys()):
+            print '=' * 40
             print '[ {} ]'.format(key)
-            print '-' * 40
+            print '=' * 40
             for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
                 print '  -{}'.format(host)
-        print '-' * 40
+            print ''
 
     def ports(self,keys,portnums=None):
 
@@ -288,7 +289,7 @@ class ConsoleAPI:
         for key in sorted(keys['censys_io']['domains'].keys()):
             protolist = []
             print '[ {} ]'.format(key)
-            print '-' * 40
+            print '=' * 40
             for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
                 protos = keys['censys_io']['domains'][key]['hosts'][host]['protos']
                 for obj in protos:
@@ -296,16 +297,15 @@ class ConsoleAPI:
                     protolist.append(proto)
             for proto in sorted(list(set(protolist))):
                 print '  -{}'.format(proto)
-        print '-' * 40
+        print '=' * 40
 
     def metrics(self,keys,type=None):
 
         print '=' * 40
         print "Censys IO Session Metrics"
         print '=' * 40
-        print '{0:10} | {1:20}'.format('Total Domains','Total Hosts')
-        print '-' * 40
-        print '{0:10} | {1:20}'.format(CensysMetrics(keys).total_domain_count(),CensysMetrics(keys).total_host_count())
+        print '{0:15} | {1:20}'.format('Total Domains',str(CensysMetrics(keys).total_domain_count()))
+        print '{0:15} | {1:20}'.format('Total Hosts',str(CensysMetrics(keys).total_host_count()))
         print '=' * 40
 
     def sessions(self,keys,session_name=None):
@@ -334,6 +334,9 @@ class ConsoleAPI:
         pass
 
     def vulns(self,keys,filter=None):
+        pass
+
+    def report(self,keys,filter=None):
         pass
 
 class CensysMetrics:
@@ -390,14 +393,16 @@ def censys_help():
        includes integration into CensysHelp
        class.'''
     print '''
+========================================
 Censys API Commands
-------------------------
+========================================
 search
 view
 query
 
+========================================
 Censys Console Commands
-------------------------
+========================================
 domains
 hosts
 ports
@@ -406,8 +411,10 @@ fprints
 metrics
 sessions
 history
+report
 help
 exit
+========================================
     '''
 
 def is_censys_error(json_obj):
@@ -547,7 +554,7 @@ def run_censys_command(cmd,ckeys):
 
     banner()
     censys_io_commands = ['search','view','query','help']
-    censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','metrics','sessions','history','fprints']
+    censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','metrics','sessions','history','fprints','report']
 
     if cmd.split()[0] in censys_io_commands:
         CensysAPI(cmd.split(), ckeys)
