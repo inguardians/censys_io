@@ -241,7 +241,6 @@ class ConsoleAPI:
         self.keys = keys
         self.parselen = len(self.apicmd)
         try:
-            print self.apicmd[0]
             runcmd = getattr(self,self.apicmd[0])
             runcmd(self.keys)
 
@@ -250,10 +249,12 @@ class ConsoleAPI:
 
     def domains(self,keys):
 
-        print '-' * 40
+        print '=' * 40
+        print 'Domains'
+        print '=' * 40
         for key in keys['censys_io']['domains'].keys():
             print key
-        print '-' * 40
+        print '=' * 40
 
     def hosts(self,keys,ip_address=None):
 
@@ -270,16 +271,16 @@ class ConsoleAPI:
         print ''
         for key in sorted(keys['censys_io']['domains'].keys()):
             portlist = []
+            print '=' * 40
             print '[ {} ]'.format(key)
-            print '-' * 40
+            print '=' * 40
             for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
                 protos = keys['censys_io']['domains'][key]['hosts'][host]['protos']
                 for obj in protos:
                     port = obj.split('/')[0].strip()
                     portlist.append(port)
-            for port in sort_ports(list(set(portlist))):
-                print '  -{}'.format(port)
-        print '-' * 40
+            print ','.join(sort_ports(list(set(portlist))))
+            print ''
 
     def protos(self,keys):
 
@@ -301,21 +302,39 @@ class ConsoleAPI:
 
         print '=' * 40
         print "Censys IO Session Metrics"
-        print '-' * 40
+        print '=' * 40
         print '{0:10} | {1:20}'.format('Total Domains','Total Hosts')
         print '-' * 40
         print '{0:10} | {1:20}'.format(CensysMetrics(keys).total_domain_count(),CensysMetrics(keys).total_host_count())
         print '=' * 40
 
-#    def websites(self,keys,website_name=None):
-#        pass
+    def sessions(self,keys,session_name=None):
+        sessions = saved_sessions()
+        print '=' * 40
+        print 'Censys IO Saved Sessions'
+        print '=' * 40
+        for session in sessions:
+            print '- {}'.format(session)
+        print '=' * 40
 
+    def history(self,keys,session_name=None):
+        '''Handles the saved Censys IO console
+           command-line history'''
+        history_exists = history_check()
+        if history_exists:
+            history_buf = load_history()
+            print history_buf
 
-#    def certs(self,keys,cert=None):
-#        pass
+        else:
+            create_history()
+            history_buf = load_history()
+            print history_buf
 
-#    def tags(self,keys,tag_name=None):
-#        pass
+    def fprints(self,keys,fprint=None):
+        pass
+
+    def vulns(self,keys,filter=None):
+        pass
 
 class CensysMetrics:
 
@@ -349,7 +368,7 @@ class CensysMetrics:
             return sum(domain_host_total)
 
     def total_port_count(self):
-
+        '''Returns total number of all unique ports in session'''
         portlist = []
         for domain in self.keys['censys_io']['domains'].keys():
                 hosts = self.keys['censys_io']['domains'][domain]['hosts'].keys()
@@ -361,6 +380,8 @@ class CensysMetrics:
         return len(list(set(portlist)))
 
     def total_proto_count(self):
+        '''Returns total number of all unique protocols
+           in session'''
         protolist = []
 
 
@@ -381,7 +402,10 @@ domains
 hosts
 ports
 protos
+fprints
 metrics
+sessions
+history
 help
 exit
     '''
@@ -451,6 +475,16 @@ def create_session(sfile):
     json_writer(skeys, sfile)
     print "Censys IO console session created."
 
+def create_history():
+    os.system('touch {}/.censys_io_history'.format(os.getcwd()))
+
+def load_history():
+    with open('{}/.censys_io_history'.format(os.getcwd()),'r') as historyfile:
+        return historyfile.read()
+
+def write_history(cmd):
+    with open('{}/.censys_io_history'.format(os.getcwd()),'a') as historyfile:
+        historyfile.write('{}\n'.format(cmd))
 
 def api_method(endpoint):
     '''Function to check existence of
@@ -459,6 +493,15 @@ def api_method(endpoint):
     for m in methods:
         if endpoint in CENSYS_KEYS['endpoints'][m].keys():
             return m
+
+def history_check():
+    '''Function to check if a CLI history
+       file for Censys IO exists'''
+    filepath = '{}/.censys_io_history'.format(os.getcwd())
+    if len(glob.glob('{}/*'.format(filepath))) == 0:
+        return False
+    else:
+        return True
 
 def session_check(sfile):
     '''Checks if a session file exists'''
@@ -470,6 +513,13 @@ def session_check(sfile):
     else:
         print "Console session found: {}".format(checkfile)
         return True
+
+def saved_sessions():
+    '''Returns a list of all currently saved
+       session files.'''
+    sessions = '{}/.sessions/'.format(os.getcwd())
+    index = glob.glob('{}*'.format(sessions))
+    return index
 
 def session_handler():
     '''Handles the current console session. If no session file
@@ -497,10 +547,11 @@ def run_censys_command(cmd,ckeys):
 
     banner()
     censys_io_commands = ['search','view','query','help']
-    censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','metrics']
+    censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','metrics','sessions','history','fprints']
 
     if cmd.split()[0] in censys_io_commands:
         CensysAPI(cmd.split(), ckeys)
+
     else:
         ConsoleAPI(cmd.split(), ckeys)
 
@@ -512,6 +563,7 @@ def censys_shell():
     while True:
         cmd = raw_input(prompt)
         check = run_censys_command(cmd, consolekeys)
+        write_history(cmd)
         json_writer(consolekeys,'{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today()))
 
 def banner():
