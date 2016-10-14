@@ -28,6 +28,7 @@ class CensysHelp:
             print "Help for {} is not available.".format(self.helpstr)
 
     def search(self):
+
         print """
 Usage: search [index] [query]
 E.X. : search websites domain.com
@@ -37,6 +38,7 @@ About: Query for specific index data
         """
 
     def view(self):
+
         print """
 Usage: view [index] [query]
 E.X. : view ipv4 000.000.000.000
@@ -46,6 +48,7 @@ About: Query for specific index data
         """
 
     def query(self):
+
         print """
 Usage: query [sql_query]
 E.X. : query 'SELECT X FROM Y'
@@ -56,7 +59,84 @@ About: Execute raw SQL queries for
        Censys IO have permission to use
        this endpoint.
         """
+
+    def domains(self):
+
+        print """
+Usage: domains <domain>
+E.X. : domains optionaldomain.com
+
+About: Shows the current domains within
+       the loaded console session. A domain
+       name may be passed to this command as
+       an additional argument to show metrics
+       for specific domain names.
+       """
+
+    def hosts(self):
+
+
+        print """
+Usage: hosts <host>
+E.X. : hosts 000.000.000.000
+       hosts 000.000.000.000,000.000.000.007
+       hosts 000.000.000.000/00
+       hosts 000.000.000.000-000
+
+About: Shows all current hosts per domain
+       within the currently loaded console
+       session. An IP address or list of IP
+       addresses may be passed in multiple
+       formats as an additional argument to
+       show metrics for specific host addresses.
+       """
+
+    def ports(self):
+
+        print """
+Usage: ports <port>
+E.X. : ports 21
+       ports 22,23,3389
+       ports 80-443
+
+About: Shows all current port numbers loaded
+       in the console session. A port number
+       or list of port numbers may be passed
+       as an additional argument to show metrics
+       for specific port numbers per host.
+       """
+
+    def protos(self):
+
+       print """
+Usage: protos <proto>
+E.X. : protos ftp
+       protos ssh,telnet,rdp
+
+About: Shows all current protocols loaded
+       in the console session. A protocol
+       name or list of protocol names may
+       be passed as an additional argument
+       to show metrics for specific protocol
+       types.
+        """
+
+    def metrics(self):
+
+        print """
+Usage: metrics <type>
+E.X. : metrics overview
+       metrics details
+
+About: Shows all current metrics for
+       the currently loaded console
+       session. An optional argument may be passed
+       to view an overview of the current session's
+       metrics or a detailed outline of the current
+       session's metrics.
+        """
     def exit(self):
+
         print """
 Usage: exit
 
@@ -75,10 +155,11 @@ class CensysAPI:
             runcmd(self.keys)
 
         except AttributeError, err:
-            print "Command not found."
+            print "API command not found."
             print self.apicmd
 
     def search(self,keys):
+
         '''Execute query against search endpoint
            using specific index type'''
         indexes = ['websites','ipv4','certificates']
@@ -113,6 +194,7 @@ class CensysAPI:
                                 keys['censys_io']['domains'][self.apicmd[2]]['hosts'].update({ip:hostkeys})
 
     def view(self,keys):
+
         '''Execute query against view endpoint
            using specific index type'''
         indexes = ['websites','ipv4','certificates']
@@ -125,6 +207,7 @@ class CensysAPI:
                 print viewjson.keys()
 
     def query(self,keys):
+
         '''Execute SQL query against query endpoint'''
         if self.parselen >= 2:
             query_url = CENSYS_API_ADDR + self.apicmd[0]
@@ -138,6 +221,7 @@ class CensysAPI:
                 print queryjson
 
     def help(self,keys):
+
         '''Run help command to display general
            help or specific command help'''
         if self.parselen == 1:
@@ -157,13 +241,14 @@ class ConsoleAPI:
         self.keys = keys
         self.parselen = len(self.apicmd)
         try:
+            print self.apicmd[0]
             runcmd = getattr(self,self.apicmd[0])
             runcmd(self.keys)
 
         except AttributeError, err:
-            print "Command not found."
+            print "Console command not found: {}".format(self.apicmd[0])
 
-    def domains(self,keys,domain_name=None):
+    def domains(self,keys):
 
         print '-' * 40
         for key in keys['censys_io']['domains'].keys():
@@ -196,7 +281,8 @@ class ConsoleAPI:
                 print '  -{}'.format(port)
         print '-' * 40
 
-    def protos(self,keys,proto_name=None):
+    def protos(self,keys):
+
         print ''
         for key in sorted(keys['censys_io']['domains'].keys()):
             protolist = []
@@ -210,6 +296,16 @@ class ConsoleAPI:
             for proto in sorted(list(set(protolist))):
                 print '  -{}'.format(proto)
         print '-' * 40
+
+    def metrics(self,keys,type=None):
+
+        print '=' * 40
+        print "Censys IO Session Metrics"
+        print '-' * 40
+        print '{0:10} | {1:20}'.format('Total Domains','Total Hosts')
+        print '-' * 40
+        print '{0:10} | {1:20}'.format(CensysMetrics(keys).total_domain_count(),CensysMetrics(keys).total_host_count())
+        print '=' * 40
 
 #    def websites(self,keys,website_name=None):
 #        pass
@@ -227,13 +323,13 @@ class CensysMetrics:
 
         self.keys = keys
 
-    def domains(self):
+    def total_domain_count(self):
 
         domains = self.keys['censys_io']['domains'].keys()
         domaincount = len(domains)
         return domaincount
 
-    def hosts(self, domain_name=None):
+    def total_host_count(self,domain_name=None):
 
         domains = self.keys['censys_io']['domains'].keys()
         if domain_name:
@@ -252,6 +348,22 @@ class CensysMetrics:
                 domain_host_total.append(domaincount)
             return sum(domain_host_total)
 
+    def total_port_count(self):
+
+        portlist = []
+        for domain in self.keys['censys_io']['domains'].keys():
+                hosts = self.keys['censys_io']['domains'][domain]['hosts'].keys()
+                for host in hosts:
+                    protos = self.keys['censys_io']['domains'][domain]['hosts'][host]['protos']
+                    for p in protos:
+                        port = p.split('/')[0]
+                        portlist.append(port)
+        return len(list(set(portlist)))
+
+    def total_proto_count(self):
+        protolist = []
+
+
 def censys_help():
     '''Censys full help menu. Todo
        includes integration into CensysHelp
@@ -268,10 +380,8 @@ Censys Console Commands
 domains
 hosts
 ports
-websites
 protos
-certs
-tags
+metrics
 help
 exit
     '''
@@ -297,7 +407,6 @@ def unpack_list(jl):
 def unpack_json_keys(jres):
     '''function to unpack values from JSON dict. If values are a list,
        send them to unpack_list'''
-
     for k,v in jres.iteritems():
         if isinstance(v, dict):
             unpack_json_keys(v)
@@ -325,7 +434,7 @@ def json_writer(jdata,jfile):
         json.dump(jdata, sfile)
 
 def json_loader(jfile):
-
+    '''Loads JSON data from file'''
     with open(jfile, 'r') as jdata:
         sdata = json.load(jdata)
         return sdata
@@ -337,14 +446,15 @@ def new_keys():
     return keys
 
 def create_session(sfile):
-
+    '''Creates a new Censys IO console session'''
     skeys = new_keys()
     json_writer(skeys, sfile)
     print "Censys IO console session created."
 
 
 def api_method(endpoint):
-
+    '''Function to check existence of
+       user-supplied API endpoint'''
     methods = CENSYS_KEYS['endpoints'].keys()
     for m in methods:
         if endpoint in CENSYS_KEYS['endpoints'][m].keys():
@@ -362,6 +472,9 @@ def session_check(sfile):
         return True
 
 def session_handler():
+    '''Handles the current console session. If no session file
+       is found, a new one will be made. If the session exists,
+       the JSON data from that session file is loaded into memory.'''
     console_sessions = '{}/.sessions'.format(os.getcwd())
     current_session = 'censys-io-{}.session'.format(date.today())
     checkfile = glob.glob('{}/{}'.format(console_sessions,current_session))
@@ -377,20 +490,23 @@ def session_handler():
         return loadkeys
 
 def run_censys_command(cmd,ckeys):
+    '''Small wrapper function to make command calls to
+       the API and console command classes'''
     if cmd == 'exit':
         sys.exit()
 
+    banner()
     censys_io_commands = ['search','view','query','help']
-    censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','exit']
+    censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','metrics']
 
     if cmd.split()[0] in censys_io_commands:
         CensysAPI(cmd.split(), ckeys)
-    elif cmd.split()[0] in censys_console_commands:
-        ConsoleAPI(cmd.split(), ckeys)
     else:
-        pass
+        ConsoleAPI(cmd.split(), ckeys)
 
 def censys_shell():
+    '''The Censys IO console command shell
+       function.'''
     consolekeys = session_handler()
     prompt = '#censys_io ~> '
     while True:
@@ -399,14 +515,16 @@ def censys_shell():
         json_writer(consolekeys,'{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today()))
 
 def banner():
-
+    '''Chooses a random banner from the ./banners path and
+     prints it to STDOUT in the console window'''
+    os.system('clear')
     banner_path = '{}/banners/'.format(os.getcwd())
     random_banner = random.choice(glob.glob('{}*'.format(banner_path)))
     with open(random_banner,'r') as banner:
         print banner.read()
 
 def main():
-    os.system('clear')
+    '''The main function'''
     banner()
     censys_shell()
 
