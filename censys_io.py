@@ -308,14 +308,21 @@ class ConsoleAPI:
         print '{0:15} | {1:20}'.format('Total Hosts',str(CensysMetrics(keys).total_host_count()))
         print '=' * 40
 
-    def sessions(self,keys,session_name=None):
+    def sessions(self,keys):
+
         sessions = saved_sessions()
-        print '=' * 40
-        print 'Censys IO Saved Sessions'
-        print '=' * 40
-        for session in sessions:
-            print '- {}'.format(session)
-        print '=' * 40
+
+        if self.parselen == 2 and int(self.apicmd[1]) <= len(sessions.keys()):
+            consolefile,consolekeys = switch_session(sessions[int(self.apicmd[1])])
+            censys_shell(consolefile,consolekeys)
+
+        else:
+            print '=' * 40
+            print 'Censys IO Saved Sessions'
+            print '=' * 40
+            for session in sessions:
+                print '{}- {}'.format(session,sessions[session])
+            print '=' * 40
 
     def history(self,keys,session_name=None):
         '''Handles the saved Censys IO console
@@ -524,27 +531,35 @@ def session_check(sfile):
 def saved_sessions():
     '''Returns a list of all currently saved
        session files.'''
+    savedkeys = {}
+    savecount = 1
     sessions = '{}/.sessions/'.format(os.getcwd())
     index = glob.glob('{}*'.format(sessions))
-    return index
+    for i in index:
+        savedkeys.update({savecount: i})
+        savecount += 1
+    return savedkeys
 
-def session_handler():
+def session_handler(sfile=None):
     '''Handles the current console session. If no session file
        is found, a new one will be made. If the session exists,
        the JSON data from that session file is loaded into memory.'''
-    console_sessions = '{}/.sessions'.format(os.getcwd())
-    current_session = 'censys-io-{}.session'.format(date.today())
-    checkfile = glob.glob('{}/{}'.format(console_sessions,current_session))
-    if len(checkfile) == 0:
-        print "Console session not found: {}".format(current_session)
-        create_session('{}/{}'.format(console_sessions,current_session))
-        loadkeys = json_loader('{}/{}'.format(console_sessions,current_session))
-        return loadkeys
+    console_sessions = saved_sessions()
+    if sfile:
+        loadkeys = json_loader(sfile)
+        return sfile,loadkeys
 
     else:
-        print "Using console session: {}".format('{}/{}'.format(console_sessions,current_session))
-        loadkeys = json_loader('{}/{}'.format(console_sessions,current_session))
-        return loadkeys
+        current_session = '{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today())
+        if current_session not in console_sessions:
+            print "Creating console session: {}".format(current_session)
+            create_session('{}'.format(current_session))
+            loadkeys = json_loader('{}'.format(current_session))
+            return current_session,loadkeys
+
+        else:
+            loadkeys = json_loader('{}'.format(current_session))
+            return current_session,loadkeys
 
 def run_censys_command(cmd,ckeys):
     '''Small wrapper function to make command calls to
@@ -562,16 +577,25 @@ def run_censys_command(cmd,ckeys):
     else:
         ConsoleAPI(cmd.split(), ckeys)
 
-def censys_shell():
+def switch_session(new_session):
+    print "Changing session: {}".format(new_session)
+    sessions = saved_sessions()
+    newfile,newkeys = session_handler(sfile=new_session)
+    return newfile,newkeys
+
+def censys_shell(cfile,ckeys):
     '''The Censys IO console command shell
        function.'''
-    consolekeys = session_handler()
+    sessions = saved_sessions()
+    banner()
+    print 'Current session: {}'.format(cfile)
+    print ''
     prompt = '#censys_io ~> '
     while True:
         cmd = raw_input(prompt)
-        check = run_censys_command(cmd, consolekeys)
+        run_censys_command(cmd, ckeys)
         write_history(cmd)
-        json_writer(consolekeys,'{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today()))
+        json_writer(ckeys,cfile)
 
 def banner():
     '''Chooses a random banner from the ./banners path and
@@ -580,12 +604,12 @@ def banner():
     banner_path = '{}/banners/'.format(os.getcwd())
     random_banner = random.choice(glob.glob('{}*'.format(banner_path)))
     with open(random_banner,'r') as banner:
-        print banner.read()
+        print banner.read().strip()
 
 def main():
     '''The main function'''
-    banner()
-    censys_shell()
+    cfile,ckeys = session_handler()
+    censys_shell(cfile,ckeys)
 
 if __name__ == '__main__':
     main()
