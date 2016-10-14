@@ -6,7 +6,6 @@ import json
 import requests
 import random
 import glob
-import nmap
 
 from datetime import date
 from argparse import ArgumentParser
@@ -64,17 +63,6 @@ Usage: exit
 About: Exit Censys IO.
         """
 
-class CensysNmap:
-
-    def __init__(self, keys):
-
-        self.keys = keys
-        self.pscanner = nmap.PortScanner()
-
-    def service_scan(self):
-
-        pass
-
 class CensysAPI:
 
     def __init__(self, cmdstr, keys):
@@ -88,6 +76,7 @@ class CensysAPI:
 
         except AttributeError, err:
             print "Command not found."
+            print self.apicmd
 
     def search(self,keys):
         '''Execute query against search endpoint
@@ -116,11 +105,9 @@ class CensysAPI:
                                 if ip in keys['censys_io']['domains'][self.apicmd[2]]['hosts'].keys():
                                     continue
                                 hostkeys = {}
-                                print ip
                                 proto = hostdata['protocols']
                                 protolist = []
                                 for p in proto:
-                                    print '   -{}'.format(p)
                                     protolist.append(p)
                                 hostkeys.update({'protos':protolist})
                                 keys['censys_io']['domains'][self.apicmd[2]]['hosts'].update({ip:hostkeys})
@@ -162,14 +149,10 @@ class CensysAPI:
         else:
             pass
 
-    def exit(self,keys):
-        '''Exit Censys IO'''
-        print "Thank you for using Censys IO."
-        sys.exit()
-
 class ConsoleAPI:
 
     def __init__(self,cmdstr,keys):
+
         self.apicmd = cmdstr
         self.keys = keys
         self.parselen = len(self.apicmd)
@@ -180,33 +163,94 @@ class ConsoleAPI:
         except AttributeError, err:
             print "Command not found."
 
-    def domains(self,keys):
+    def domains(self,keys,domain_name=None):
+
+        print '-' * 40
         for key in keys['censys_io']['domains'].keys():
             print key
+        print '-' * 40
 
-    def hosts(self,keys):
+    def hosts(self,keys,ip_address=None):
+
+        print ''
         for key in sorted(keys['censys_io']['domains'].keys()):
+            print '[ {} ]'.format(key)
             print '-' * 40
-            print 'Domain: {}'.format(key)
+            for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
+                print '  -{}'.format(host)
+        print '-' * 40
+
+    def ports(self,keys,portnums=None):
+
+        print ''
+        for key in sorted(keys['censys_io']['domains'].keys()):
+            portlist = []
+            print '[ {} ]'.format(key)
             print '-' * 40
-            for host in sorted(keys['censys_io']['domains'][key]['hosts'].keys()):
-                print host
+            for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
+                protos = keys['censys_io']['domains'][key]['hosts'][host]['protos']
+                for obj in protos:
+                    port = obj.split('/')[0].strip()
+                    portlist.append(port)
+            for port in sort_ports(list(set(portlist))):
+                print '  -{}'.format(port)
+        print '-' * 40
+
+    def protos(self,keys,proto_name=None):
+        print ''
+        for key in sorted(keys['censys_io']['domains'].keys()):
+            protolist = []
+            print '[ {} ]'.format(key)
             print '-' * 40
+            for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
+                protos = keys['censys_io']['domains'][key]['hosts'][host]['protos']
+                for obj in protos:
+                    proto = obj.split('/')[1].strip()
+                    protolist.append(proto)
+            for proto in sorted(list(set(protolist))):
+                print '  -{}'.format(proto)
+        print '-' * 40
 
-    def ports(self,keys):
-        pass
+#    def websites(self,keys,website_name=None):
+#        pass
 
-    def websites(self,keys):
-        pass
 
-    def protos(self,keys):
-        pass
+#    def certs(self,keys,cert=None):
+#        pass
 
-    def certs(self,keys):
-        pass
+#    def tags(self,keys,tag_name=None):
+#        pass
 
-    def tags(self,keys):
-        pass
+class CensysMetrics:
+
+    def __init__(self,keys):
+
+        self.keys = keys
+
+    def domains(self):
+
+        domains = self.keys['censys_io']['domains'].keys()
+        domaincount = len(domains)
+        return domaincount
+
+    def hosts(self, domain_name=None):
+
+        domains = self.keys['censys_io']['domains'].keys()
+        if domain_name:
+            for domain in domains:
+                if domain == domain_name:
+                    hosts = self.keys['censys_io']['domains'][domain]['hosts'].keys()
+                    hostcount = len(hosts)
+                    return hostcount
+
+                else:
+                    continue
+        else:
+            domain_host_total = []
+            for domain in self.keys['censys_io']['domains'].keys():
+                domaincount = len(self.keys['censys_io']['domains'][domain]['hosts'].keys())
+                domain_host_total.append(domaincount)
+            return sum(domain_host_total)
 
 def censys_help():
     '''Censys full help menu. Todo
@@ -332,23 +376,26 @@ def session_handler():
         loadkeys = json_loader('{}/{}'.format(console_sessions,current_session))
         return loadkeys
 
-def is_console(cmd):
-    if cmd == 'hosts' or cmd == 'domains' or cmd == 'ports':
-        return True
+def run_censys_command(cmd,ckeys):
+    if cmd == 'exit':
+        sys.exit()
+
+    censys_io_commands = ['search','view','query','help']
+    censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','exit']
+
+    if cmd.split()[0] in censys_io_commands:
+        CensysAPI(cmd.split(), ckeys)
+    elif cmd.split()[0] in censys_console_commands:
+        ConsoleAPI(cmd.split(), ckeys)
     else:
-        return False
+        pass
 
 def censys_shell():
     consolekeys = session_handler()
     prompt = '#censys_io ~> '
     while True:
         cmd = raw_input(prompt)
-        check = is_console(cmd)
-        if check:
-            ConsoleAPI(cmd.split(), consolekeys)
-        else:
-            CensysAPI(cmd.split(), consolekeys)
-
+        check = run_censys_command(cmd, consolekeys)
         json_writer(consolekeys,'{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today()))
 
 def banner():
