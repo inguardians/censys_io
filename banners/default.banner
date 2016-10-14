@@ -1,3 +1,19 @@
-=============================
-Censys APIv1 CLI Client
-=============================
+==========================================================================================
+             .                                                                                      
+        `.:-://:-`                                                                                  
+     `-/++-////////-.                                                                               
+  .:++++/-/:.`.-------.                                                                             
+  -++++-.`      `.-:-.   -+sssys+.   y+:osyys+.   -osyssss+ -ys`    `sy- -osyssss+  
+  o:/+/                 /ho.   .yy.  hh/.   :hy` -hs`    `.  +h+    oh/ -hs`    `.  
+  oo://                 yh+/////sh/  hh`     yh. `yy//:::-    sh:  :ho  `yy+/:::-   
+  ooo::                 yh:-------.  hh`     yh.  `-////ohs`  `yy..ys`   `-////ohs` 
+  oooo:                 :ho.         hh`     yh.  `     `yh.   -hssy`    `     `yh. 
+  oooooo/-`    `-:/hs/.  .+syyssss   hh`     yh.  osyssyyo:     /hh-     osyssyyo:  
+   ./++++++/:/oh+ohhhy+.                                       `oh:                 
+     `:+-Censys IO-+/.                                         +yo.                  
+         ./shs:/-`                                             `                     
+            ``        _______________________________________________
+                    /[ Censys IO ] [ Kory Findley ] [InGuardians Inc.]\
+          _________/___________________________________________________\________
+         [A Python client for the Censys IO API designed for penetration testers]
+==========================================================================================
