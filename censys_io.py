@@ -10,9 +10,15 @@ import glob
 from datetime import date
 from argparse import ArgumentParser
 
+def load_api_keys():
+    '''Reads the keys stored in .ec2_keys
+       and returns them in a list'''
+    with open('{}/.censys_api_keys'.format(os.getcwd()),'r') as ec2keys:
+        return ec2keys.read()
+
 CENSYS_API_ADDR = 'https://www.censys.io/api/v1/'
-CENSYS_API_ID = 'fe857b4f-99d5-4239-955a-90bd65ba75bc'
-CENSYS_API_SECRET = 'A95Maw51wALQVGTJmtGSmMcTUraAxebV'
+CENSYS_API_ID = sorted(load_api_keys().strip().split('\n'))[0].split('=')[1].strip()
+CENSYS_API_SECRET = sorted(load_api_keys().strip().split('\n'))[1].split('=')[1].strip()
 
 class CensysHelp:
 
@@ -193,6 +199,9 @@ class CensysAPI:
                                 hostkeys.update({'protos':protolist})
                                 keys['censys_io']['domains'][self.apicmd[2]]['hosts'].update({ip:hostkeys})
 
+                    else:
+                        print searchjson
+
     def view(self,keys):
 
         '''Execute query against view endpoint
@@ -249,32 +258,30 @@ class ConsoleAPI:
 
     def domains(self,keys):
 
-        print '=' * 40
+        print '=' * 90
         print 'Domains'
-        print '=' * 40
+        print '=' * 90
         for key in keys['censys_io']['domains'].keys():
             print key
-        print '=' * 40
+        print '=' * 90
 
     def hosts(self,keys,ip_address=None):
 
-        print ''
         for key in sorted(keys['censys_io']['domains'].keys()):
-            print '=' * 40
+            print '=' * 90
             print '[ {} ]'.format(key)
-            print '=' * 40
+            print '=' * 90
             for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
                 print '  -{}'.format(host)
             print ''
 
     def ports(self,keys,portnums=None):
 
-        print ''
         for key in sorted(keys['censys_io']['domains'].keys()):
             portlist = []
-            print '=' * 40
+            print '=' * 90
             print '[ {} ]'.format(key)
-            print '=' * 40
+            print '=' * 90
             for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
                 protos = keys['censys_io']['domains'][key]['hosts'][host]['protos']
                 for obj in protos:
@@ -285,11 +292,10 @@ class ConsoleAPI:
 
     def protos(self,keys):
 
-        print ''
         for key in sorted(keys['censys_io']['domains'].keys()):
             protolist = []
             print '[ {} ]'.format(key)
-            print '=' * 40
+            print '=' * 90
             for host in sort_ips(list(set(keys['censys_io']['domains'][key]['hosts'].keys()))):
                 protos = keys['censys_io']['domains'][key]['hosts'][host]['protos']
                 for obj in protos:
@@ -297,16 +303,16 @@ class ConsoleAPI:
                     protolist.append(proto)
             for proto in sorted(list(set(protolist))):
                 print '  -{}'.format(proto)
-        print '=' * 40
+        print '=' * 90
 
     def metrics(self,keys,type=None):
 
-        print '=' * 40
+        print '=' * 90
         print "Censys IO Session Metrics"
-        print '=' * 40
+        print '=' * 90
         print '{0:15} | {1:20}'.format('Total Domains',str(CensysMetrics(keys).total_domain_count()))
         print '{0:15} | {1:20}'.format('Total Hosts',str(CensysMetrics(keys).total_host_count()))
-        print '=' * 40
+        print '=' * 90
 
     def sessions(self,keys):
 
@@ -317,12 +323,12 @@ class ConsoleAPI:
             censys_shell(consolefile,consolekeys)
 
         else:
-            print '=' * 40
-            print 'Censys IO Saved Sessions'
-            print '=' * 40
+            print '=' * 90
+            print 'Available Console Sessions'
+            print '=' * 90
             for session in sessions:
                 print '{}- {}'.format(session,sessions[session])
-            print '=' * 40
+            print '=' * 90
 
     def history(self,keys,session_name=None):
         '''Handles the saved Censys IO console
@@ -330,12 +336,16 @@ class ConsoleAPI:
         history_exists = history_check()
         if history_exists:
             history_buf = load_history()
-            print history_buf
+            history_buf_len = len(history_buf.split('\n'))
+            for i in range(0,history_buf_len):
+                print i,history_buf.split('\n')[i-1]
 
         else:
             create_history()
             history_buf = load_history()
-            print history_buf
+            history_buf_len = len(history_buf.split('\n'))
+            for i in range(0,history_buf_len):
+                print i,history_buf.split('\n')[i-1]
 
     def fprints(self,keys,fprint=None):
         pass
@@ -400,16 +410,16 @@ def censys_help():
        includes integration into CensysHelp
        class.'''
     print '''
-========================================
+================================================================================
 Censys API Commands
-========================================
+================================================================================
 search
 view
 query
 
-========================================
+================================================================================
 Censys Console Commands
-========================================
+================================================================================
 domains
 hosts
 ports
@@ -419,9 +429,10 @@ metrics
 sessions
 history
 report
+vulns
 help
 exit
-========================================
+================================================================================
     '''
 
 def is_censys_error(json_obj):
@@ -551,7 +562,7 @@ def session_handler(sfile=None):
 
     else:
         current_session = '{}/.sessions/censys-io-{}.session'.format(os.getcwd(),date.today())
-        if current_session not in console_sessions:
+        if current_session not in console_sessions.values():
             print "Creating console session: {}".format(current_session)
             create_session('{}'.format(current_session))
             loadkeys = json_loader('{}'.format(current_session))
@@ -561,13 +572,17 @@ def session_handler(sfile=None):
             loadkeys = json_loader('{}'.format(current_session))
             return current_session,loadkeys
 
-def run_censys_command(cmd,ckeys):
+def run_censys_command(cmd,ckeys,cfile):
     '''Small wrapper function to make command calls to
        the API and console command classes'''
     if cmd == 'exit':
         sys.exit()
 
     banner()
+    print '-Console session loaded: {}'.format(cfile)
+    print '-Type "help" for a full list of commands.'
+    print '=' * 90
+    print ''
     censys_io_commands = ['search','view','query','help']
     censys_console_commands = ['domains','hosts','ports','websites','protos','certs','tags','metrics','sessions','history','fprints','report']
 
@@ -588,12 +603,14 @@ def censys_shell(cfile,ckeys):
        function.'''
     sessions = saved_sessions()
     banner()
-    print 'Current session: {}'.format(cfile)
-    print ''
     prompt = '#censys_io ~> '
+    print '-Console session loaded: {}'.format(cfile)
+    print '-Type "help" for a full list of commands.'
+    print '=' * 90
+    print ''
     while True:
         cmd = raw_input(prompt)
-        run_censys_command(cmd, ckeys)
+        run_censys_command(cmd, ckeys, cfile)
         write_history(cmd)
         json_writer(ckeys,cfile)
 
@@ -604,7 +621,7 @@ def banner():
     banner_path = '{}/banners/'.format(os.getcwd())
     random_banner = random.choice(glob.glob('{}*'.format(banner_path)))
     with open(random_banner,'r') as banner:
-        print banner.read().strip()
+        print banner.read().rstrip()
 
 def main():
     '''The main function'''

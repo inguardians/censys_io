@@ -34,4 +34,47 @@ current console session's scope).
 
 ## usage
 
+The tool can be executed by issuing the command "python2 censys_io.py", which will drop the user
+into the interactive command console.
+
+...snip...
+
+==========================================================================================
+-Console session loaded: /path/to/censys_io/.sessions/censys-io-0000-11-22.session
+-Type "help" for a full list of commands.
+==========================================================================================
+
+#censys_io ~> 
+
+...snip...
+
+The following built-in commands are currently available in Censys IO:
+
+API Commands
+
+-search
+-view
+-query
+
+Console Commands
+
+-domains
+-hosts
+-ports
+-protos
+-fprints
+-metrics
+-sessions
+-history
+-report
+-vulns
+-help
+-exit
+
 ## todo
+
+- Break the code down into separate modules instead of one huge script.
+- Integrate active scanning for targeted fingerprinting and service detection, as well as protocol or application specific
+  auxiliary and script scanning using data gathered passively from Censys IO.
+- Integrate passive exploit suggestions from ExploitDB via searchsploit by parsing service and system fingerprint data. 
+- Parse responses for the "view" and "query" API endpoints.
