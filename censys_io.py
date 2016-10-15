@@ -6,6 +6,7 @@ import json
 import requests
 import random
 import glob
+import readline
 
 from datetime import date
 from argparse import ArgumentParser
@@ -170,7 +171,6 @@ class CensysAPI:
            using specific index type'''
         indexes = ['websites','ipv4','certificates']
         tlds = ['com','net','org','edu','in','gov','io']
-        print keys
         if self.parselen == 3:
             if self.apicmd[1] in indexes:
                 search_url = CENSYS_API_ADDR + self.apicmd[0] + '/' + self.apicmd[1]
@@ -182,25 +182,30 @@ class CensysAPI:
                 if check_res:
                     print searchjson['error']
 
-                else: #NEED TO ADD LOGIC TO HANDLE WEBSITE AND CERTIFICATE DATA FOR PARSING AND SAVING SESSION DATA
-                    if '.' in self.apicmd[2] and self.apicmd[2].split('.')[1].strip() in tlds:
-                        if self.apicmd[2] not in keys['censys_io']['domains'].keys():
-                            keys['censys_io']['domains'].update({self.apicmd[2]:{'hosts':{}}})
-                            results = searchjson['results']
-                            for hostdata in results:
-                                ip = hostdata['ip']
-                                if ip in keys['censys_io']['domains'][self.apicmd[2]]['hosts'].keys():
-                                    continue
-                                hostkeys = {}
-                                proto = hostdata['protocols']
-                                protolist = []
-                                for p in proto:
-                                    protolist.append(p)
-                                hostkeys.update({'protos':protolist})
-                                keys['censys_io']['domains'][self.apicmd[2]]['hosts'].update({ip:hostkeys})
+                else:
+
+                    if self.apicmd[2] not in keys['censys_io']['domains'].keys():
+                        keys['censys_io']['domains'].update({self.apicmd[2]:{'hosts':{}}})
+
+                    if self.apicmd[1] == 'ipv4':
+                        results = searchjson['results']
+                        for hostdata in results:
+                            ip = hostdata['ip']
+                            if ip in keys['censys_io']['domains'][self.apicmd[2]]['hosts'].keys():
+                                continue
+                            hostkeys = {}
+                            proto = hostdata['protocols']
+                            protolist = []
+                            for p in proto:
+                                protolist.append(p)
+                            hostkeys.update({'protos':protolist})
+                            keys['censys_io']['domains'][self.apicmd[2]]['hosts'].update({ip:hostkeys})
+
+                    elif self.apicmd[1] == 'websites':
+                        print searchjson
 
                     else:
-                        print searchjson
+                        pass
 
     def view(self,keys):
 
@@ -210,10 +215,9 @@ class CensysAPI:
         if self.parselen == 3:
             if self.apicmd[1] in indexes:
                 view_url = CENSYS_API_ADDR + self.apicmd[0] + '/' + self.apicmd[1] + '/' + self.apicmd[2]
-                print view_url
                 view_obj = requests.get(view_url, auth=(CENSYS_API_ID,CENSYS_API_SECRET))
                 viewjson = view_obj.json()
-                print viewjson.keys()
+                print viewjson
 
     def query(self,keys):
 
@@ -410,16 +414,16 @@ def censys_help():
        includes integration into CensysHelp
        class.'''
     print '''
-================================================================================
+==========================================================================================
 Censys API Commands
-================================================================================
+==========================================================================================
 search
 view
 query
 
-================================================================================
+==========================================================================================
 Censys Console Commands
-================================================================================
+==========================================================================================
 domains
 hosts
 ports
@@ -580,7 +584,6 @@ def run_censys_command(cmd,ckeys,cfile):
 
     banner()
     print '-Console session loaded: {}'.format(cfile)
-    print '-Type "help" for a full list of commands.'
     print '=' * 90
     print ''
     censys_io_commands = ['search','view','query','help']
@@ -609,6 +612,7 @@ def censys_shell(cfile,ckeys):
     print '=' * 90
     print ''
     while True:
+        readline.get_line_buffer()
         cmd = raw_input(prompt)
         run_censys_command(cmd, ckeys, cfile)
         write_history(cmd)
